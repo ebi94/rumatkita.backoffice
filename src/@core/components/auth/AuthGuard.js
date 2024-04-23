@@ -9,6 +9,7 @@ import { useAuth } from 'src/hooks/useAuth';
 
 const AuthGuard = (props) => {
   const { children, fallback } = props;
+  console.log('props', props);
   const auth = useAuth();
   const router = useRouter();
   useEffect(
@@ -19,14 +20,16 @@ const AuthGuard = (props) => {
       if (auth.user === null && !window.localStorage.getItem('userData')) {
         if (router.asPath !== '/') {
           router.replace({
-            pathname: '/login',
-            query: { returnUrl: router.asPath }
+            pathname: '/login'
+
+            // query: { returnUrl: router.asPath }
           });
         } else {
           router.replace('/login');
         }
       }
     },
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router.route]
   );

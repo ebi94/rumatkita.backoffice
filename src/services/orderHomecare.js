@@ -46,4 +46,26 @@ const detailOrderHomecare = async (id) => {
   });
 };
 
-export { listOrderHomecare, detailOrderHomecare };
+const updateStatusOrderHomecare = async (id, payload) => {
+  const requestOptions = {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  };
+
+  return await fetch(`/api/order/homecare/updateStatus?id=${id}`, requestOptions).then(
+    async (r) => {
+      let result;
+      try {
+        result = await r.json();
+      } catch (e) {
+        result = {};
+      }
+
+      return { ...result };
+    }
+  );
+};
+
+export { listOrderHomecare, detailOrderHomecare, updateStatusOrderHomecare };

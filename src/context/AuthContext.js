@@ -115,6 +115,8 @@ const AuthProvider = ({ children }) => {
     //   : null;
 
     const redirectURL = returnUrl && returnUrl !== '/' ? returnUrl : '/';
+    console.log('redirectURL', redirectURL);
+    console.log('returnUrl', returnUrl);
     router.reload(redirectURL);
   };
 

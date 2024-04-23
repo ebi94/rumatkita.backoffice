@@ -1,24 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import Divider from '@mui/material/Divider';
 import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardHeader from '@mui/material/CardHeader';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
 import { DataGrid } from '@mui/x-data-grid';
 import Icon from 'src/@core/components/icon';
 import PageHeader from 'src/@core/components/page-header';
 import { useDispatch, useSelector } from 'react-redux';
 import CustomAvatar from 'src/@core/components/mui/avatar';
+import CustomChip from 'src/@core/components/mui/chip';
 import CardStatisticsHorizontal from 'src/@core/components/card-statistics/card-stats-horizontal';
 import { getInitials } from 'src/@core/utils/get-initials';
 import { fetchData, deleteUser } from 'src/store/apps/user';
 import axios from 'axios';
 import TableHeader from 'src/views/customers/TableHeader';
 import AddUserDrawer from 'src/views/customers/AddUserDrawer';
+import { listCustomer } from 'src/services/customers';
 
 const TypographyStyled = styled(Typography)(({ theme }) => ({
   textDecoration: 'none',
@@ -43,172 +51,206 @@ const LinkStyled = styled(Link)(({ theme }) => ({
   }
 }));
 
-// ** renders client column
-const renderClient = (row) => {
-  if (row.avatar.length) {
-    return <CustomAvatar src={row.avatar} sx={{ mr: 3, width: 30, height: 30 }} />;
-  } else {
-    return (
-      <CustomAvatar
-        skin="light"
-        color={row.avatarColor || 'primary'}
-        sx={{ mr: 3, width: 30, height: 30, fontSize: '.875rem' }}>
-        {getInitials(row.fullName ? row.fullName : 'John Doe')}
-      </CustomAvatar>
-    );
-  }
-};
-
-const RowOptions = ({ id }) => {
-  // ** Hooks
-  const dispatch = useDispatch();
-
-  // ** State
-  const [anchorEl, setAnchorEl] = useState(null);
-  const rowOptionsOpen = Boolean(anchorEl);
-
-  const handleRowOptionsClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleRowOptionsClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleDelete = () => {
-    dispatch(deleteUser(id));
-    handleRowOptionsClose();
-  };
-
-  return (
-    <>
-      <IconButton size="small" component={Link} href={`/customers/detail`}>
-        <Icon icon="mdi:eye-outline" fontSize={20} />
-      </IconButton>
-    </>
-  );
-};
-
-const columns = [
-  {
-    flex: 0.2,
-    minWidth: 200,
-    field: 'fullName',
-    headerName: 'Customer Name',
-    renderCell: ({ row }) => {
-      const { fullName, username } = row;
-
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {renderClient(row)}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', flexDirection: 'column' }}>
-            <LinkStyled href="/apps/user/view/overview/">{fullName}</LinkStyled>
-            <Typography noWrap variant="caption">
-              {`Laki - laki`} | {`75 tahun`}
-            </Typography>
-          </Box>
-        </Box>
-      );
-    }
-  },
-  {
-    flex: 0.2,
-    minWidth: 200,
-    field: 'email',
-    headerName: 'Email',
-    renderCell: ({ row }) => {
-      return (
-        <Typography noWrap variant="body2">
-          {row.email}
-        </Typography>
-      );
-    }
-  },
-  {
-    flex: 0.2,
-    minWidth: 200,
-    field: 'phone',
-    headerName: 'Phone Number',
-    renderCell: ({ row }) => {
-      return (
-        <Typography noWrap variant="body2">
-          {row?.contact ?? '-'}
-        </Typography>
-      );
-    }
-  },
-  {
-    flex: 0.15,
-    field: 'role',
-    minWidth: 150,
-    headerName: 'Registration Source',
-    renderCell: ({ row }) => {
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            '& svg': { mr: 3, color: userRoleObj[row?.role].color }
-          }}>
-          <Icon icon={userRoleObj[row?.role].icon} fontSize={20} />
-          <Typography noWrap sx={{ color: 'text.secondary', textTransform: 'capitalize' }}>
-            {row.role}
-          </Typography>
-        </Box>
-      );
-    }
-  },
-  {
-    flex: 0.15,
-    minWidth: 100,
-    headerName: 'MR Number',
-    field: 'currentPlan',
-    renderCell: ({ row }) => {
-      return (
-        <Typography noWrap sx={{ textTransform: 'capitalize' }}>
-          MR{+row?.id + 50}12355{+row?.id + 100}
-        </Typography>
-      );
-    }
-  },
-  {
-    flex: 0.1,
-    minWidth: 50,
-    sortable: false,
-    field: 'actions',
-    headerName: 'Actions',
-    renderCell: ({ row }) => <RowOptions id={row.id} />
-  }
-];
-
 const Customers = ({ apiData }) => {
   // ** State
+  const [dataList, setDataList] = useState([]);
+  const [dataDetail, setDataDetail] = useState({});
+  const [loading, setLoading] = useState(false);
   const [role, setRole] = useState('');
   const [plan, setPlan] = useState('');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('');
   const [addUserOpen, setAddUserOpen] = useState(false);
+  const [openCustomer, setOpenCustomer] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
 
-  // ** Hooks
-  const dispatch = useDispatch();
-  const store = useSelector((state) => state.user);
-  useEffect(() => {
-    dispatch(
-      fetchData({
-        role,
-        status,
-        q: value,
-        currentPlan: plan
-      })
+  // ** renders client column
+  const renderClient = (row) => {
+    if (row?.avatar?.length) {
+      return <CustomAvatar src={row?.avatar} sx={{ mr: 3, width: 30, height: 30 }} />;
+    } else {
+      return (
+        <CustomAvatar
+          skin="light"
+          color={row.avatarColor || 'primary'}
+          sx={{ mr: 3, width: 30, height: 30, fontSize: '.875rem' }}>
+          {getInitials(row?.fullName ? row?.fullName : 'John Doe')}
+        </CustomAvatar>
+      );
+    }
+  };
+
+  const RowOptions = ({ data }) => {
+    // ** Hooks
+    const dispatch = useDispatch();
+
+    // ** State
+    const [anchorEl, setAnchorEl] = useState(null);
+    const rowOptionsOpen = Boolean(anchorEl);
+
+    const handleRowOptionsClick = (event) => {
+      setAnchorEl(event.currentTarget);
+    };
+
+    const handleRowOptionsClose = () => {
+      setAnchorEl(null);
+    };
+
+    const handleDelete = () => {
+      dispatch(deleteUser(data?.id));
+      handleRowOptionsClose();
+    };
+
+    console.log('data', data);
+
+    return (
+      <>
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            console.log(e);
+            setDataDetail(data);
+            setOpenCustomer(true);
+          }}>
+          <Icon icon="mdi:eye-outline" fontSize={20} />
+        </IconButton>
+      </>
     );
-  }, [dispatch, plan, role, status, value]);
+  };
+
+  const columns = [
+    {
+      flex: 0.2,
+      minWidth: 200,
+      field: 'fullName',
+      headerName: 'Customer Name',
+      renderCell: ({ row }) => {
+        const { fullName, gender, age } = row;
+
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {renderClient(row)}
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', flexDirection: 'column' }}>
+              <LinkStyled href="/apps/user/view/overview/">{fullName}</LinkStyled>
+              <Typography noWrap variant="caption">
+                {gender} | {age}
+              </Typography>
+            </Box>
+          </Box>
+        );
+      }
+    },
+    {
+      flex: 0.2,
+      minWidth: 200,
+      field: 'email',
+      headerName: 'Email',
+      renderCell: ({ row }) => {
+        return (
+          <Typography noWrap variant="body2">
+            {row.email}
+          </Typography>
+        );
+      }
+    },
+    {
+      flex: 0.2,
+      minWidth: 200,
+      field: 'phone',
+      headerName: 'Phone Number',
+      renderCell: ({ row }) => {
+        return (
+          <Typography noWrap variant="body2">
+            {row?.phone ?? '-'}
+          </Typography>
+        );
+      }
+    },
+    {
+      flex: 0.15,
+      field: 'role',
+      minWidth: 150,
+      headerName: 'Registration Source',
+      renderCell: ({ row }) => {
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              '& svg': { mr: 3, color: userRoleObj[row?.source].color }
+            }}>
+            <Icon icon={userRoleObj[row?.source].icon} fontSize={20} />
+            <Typography noWrap sx={{ color: 'text.secondary', textTransform: 'capitalize' }}>
+              {row.source}
+            </Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      flex: 0.15,
+      minWidth: 100,
+      headerName: 'MR Number',
+      field: 'currentPlan',
+      renderCell: ({ row }) => {
+        return (
+          <Typography noWrap sx={{ textTransform: 'capitalize' }}>
+            {row?.mr ?? '-'}
+          </Typography>
+        );
+      }
+    },
+    {
+      flex: 0.1,
+      minWidth: 50,
+      sortable: false,
+      field: 'actions',
+      headerName: 'Actions',
+      renderCell: ({ row }) => <RowOptions data={row} />
+    }
+  ];
+
+  // ** Hooks
+  const fetchDataList = async () => {
+    const res = await listCustomer();
+    if (+res?.result?.status === 200) {
+      const data = res?.result?.data !== null ? res?.result?.data : [];
+
+      const checkSource = (source) => {
+        switch (source) {
+          case 'GOOGLE':
+            return 'Google';
+          case 'PHONE NUMBER':
+            return 'Phone';
+        }
+      };
+
+      const mappingDataList = data.map((item) => {
+        return {
+          id: item?.user_id,
+          fullName: item?.name,
+          age: item?.date_of_birth,
+          source: checkSource(item?.registered_with),
+          ...item
+        };
+      });
+      setDataList(mappingDataList);
+      setLoading(false);
+    } else {
+      toast.error(`Status Code : ${res?.result?.status}`);
+      setLoading(false);
+    }
+  };
 
   const handleFilter = useCallback((val) => {
     setValue(val);
   }, []);
 
   const toggleAddUserDrawer = () => setAddUserOpen(!addUserOpen);
+
+  useEffect(() => {
+    fetchDataList();
+  }, []);
 
   return (
     <Grid container spacing={6}>
@@ -217,7 +259,7 @@ const Customers = ({ apiData }) => {
         subtitle={<Typography variant="body2">List of Customer using RUMATKITA Apps</Typography>}
       />
       <Grid item xs={12}>
-        {apiData && (
+        {/* {apiData && (
           <Grid container spacing={6}>
             {apiData.statsHorizontal.map((item, index) => {
               return (
@@ -227,7 +269,7 @@ const Customers = ({ apiData }) => {
               );
             })}
           </Grid>
-        )}
+        )} */}
       </Grid>
       <Grid item xs={12}>
         <Card>
@@ -297,7 +339,7 @@ const Customers = ({ apiData }) => {
           <TableHeader value={value} handleFilter={handleFilter} toggle={toggleAddUserDrawer} />
           <DataGrid
             autoHeight
-            rows={store.data}
+            rows={dataList}
             columns={columns}
             disableRowSelectionOnClick
             pageSizeOptions={[10, 25, 50]}
@@ -308,6 +350,108 @@ const Customers = ({ apiData }) => {
       </Grid>
 
       <AddUserDrawer open={addUserOpen} toggle={toggleAddUserDrawer} />
+      <Dialog maxWidth="xs" fullWidth open={openCustomer} onClose={() => setOpenCustomer(false)}>
+        <DialogTitle>Customer Detail</DialogTitle>
+        <DialogContent>
+          <Card>
+            <CardContent
+              sx={{ pt: 15, display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
+              <CustomAvatar
+                skin="light"
+                variant="rounded"
+                color={'info'}
+                sx={{ width: 120, height: 120, fontWeight: 600, mb: 4, fontSize: '3rem' }}>
+                {getInitials(dataDetail?.fullName)}
+              </CustomAvatar>
+              <Typography variant="h6" sx={{ mb: 4 }}>
+                {dataDetail?.fullName}
+              </Typography>
+              <CustomChip
+                skin="light"
+                size="small"
+                label={
+                  <Box sx={{ display: 'flex' }}>
+                    <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.775rem' }}>
+                      No MR:
+                    </Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.775rem' }}>
+                      {dataDetail?.mr}
+                    </Typography>
+                  </Box>
+                }
+                color="info"
+                sx={{ textTransform: 'capitalize' }}
+              />
+            </CardContent>
+            <CardContent>
+              <Divider sx={{ my: (theme) => `${theme.spacing(4)} !important` }} />
+              <Box sx={{ pb: 1 }}>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Full Name
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.fullName}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Gender
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.gender}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Phone Number
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.phone}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Email
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.email}</Typography>
+                </Box>
+
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Place and Birthday
+                  </Typography>
+                  <Typography variant="body2">: Jakarta, {dataDetail?.date_of_birth}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Status
+                  </Typography>
+                  <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                    : {dataDetail?.status}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Address
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.address}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', mb: 2 }}>
+                  <Typography sx={{ mr: 2, fontWeight: 500, fontSize: '0.875rem', width: '45%' }}>
+                    Registration Source
+                  </Typography>
+                  <Typography variant="body2">: {dataDetail?.source}</Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </DialogContent>
+        <DialogActions sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Button
+            color="warning"
+            fullWidth
+            onClick={() => setOpenCustomer(false)}
+            variant="contained"
+            size="small">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 };

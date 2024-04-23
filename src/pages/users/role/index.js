@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Grid from '@mui/material/Grid';
 import { styled } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+import toast from 'react-hot-toast';
 import PageHeader from 'src/@core/components/page-header';
 import RolesCards from 'src/views/users/role/RoleCards';
 import { listRole } from 'src/services/roles';
@@ -53,7 +54,7 @@ const UsersRole = ({ apiData }) => {
         }
       />
       <Grid item xs={12} sx={{ mb: 4 }}>
-        <RolesCards dataList={dataList} />
+        <RolesCards dataList={dataList} onRefresh={fetchDataList} />
       </Grid>
     </Grid>
   );

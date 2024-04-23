@@ -23,7 +23,6 @@ import getHomeRoute from 'src/layouts/components/acl/getHomeRoute';
 import toast from 'react-hot-toast';
 
 const AclGuard = (props) => {
-  // ** Props
   const { aclAbilities, children, guestGuard = false, authGuard = true } = props;
 
   console.log('children', children);

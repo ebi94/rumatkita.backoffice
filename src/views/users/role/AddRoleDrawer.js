@@ -23,11 +23,9 @@ import FormHelperText from '@mui/material/FormHelperText';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useForm, Controller } from 'react-hook-form';
-import { addUser, editUser } from 'src/services/users';
 import { useAuth } from 'src/hooks/useAuth';
 import Icon from 'src/@core/components/icon';
-import { listRole } from 'src/services/roles';
-import { listPermission } from 'src/services/permissions';
+import { addPermission, editPermission, listPermission } from 'src/services/permissions';
 
 const showErrors = (field, valueLen, min) => {
   if (valueLen === 0) {
@@ -48,34 +46,26 @@ const Header = styled(Box)(({ theme }) => ({
 }));
 
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
-  fullname: yup
+  name: yup
     .string()
-    .min(3, (obj) => showErrors('First Name', obj.value.length, obj.min))
-    .required(),
-  username: yup
-    .string()
-    .min(3, (obj) => showErrors('User Name', obj.value.length, obj.min))
+    .min(3, (obj) => showErrors('Name', obj.value.length, obj.min))
     .required()
 });
 
 const AddRoleDrawer = (props) => {
   // ** Props
   const { open, toggle, type, dataDetail, onRefresh } = props;
+  console.log('dataDetail', dataDetail);
 
   // ** State
   const [loading, setLoading] = useState(false);
   const [permissionList, setPermissionList] = useState([]);
-  const [selectedCheckbox, setSelectedCheckbox] = useState([]);
+  const [menuData, setMenuData] = useState([]);
 
   const { logout } = useAuth();
 
-  const emptyDefaultValues = {
-    name: ''
-  };
-
   const defaultValues = {
-    name: dataDetail?.name ?? ''
+    name: ''
   };
 
   const handleSelectAllCheckbox = () => {};
@@ -87,8 +77,8 @@ const AddRoleDrawer = (props) => {
     handleSubmit,
     formState: { errors }
   } = useForm({
-    defaultValues: type === 'Add' ? emptyDefaultValues : defaultValues,
-    mode: 'onBlur',
+    defaultValues,
+    mode: 'onChange',
     resolver: yupResolver(schema)
   });
 
@@ -97,10 +87,12 @@ const AddRoleDrawer = (props) => {
   };
 
   const onSubmit = async (data) => {
+    console.log('data', data);
     setLoading(true);
 
     const payload = {
-      name: data?.name
+      name: data?.name,
+      permission: menuData
     };
 
     const payloadEdit = {
@@ -109,25 +101,25 @@ const AddRoleDrawer = (props) => {
     };
 
     if (type === 'Add') {
-      const res = await addUser(payload);
+      const res = await addPermission(payload);
       if (+res?.result?.status === 201) {
         setLoading(false);
-        toast.success('Created User Success');
+        toast.success('Created Role Successfully');
         onReset();
-        onRefresh();
         toggle();
+        onRefresh();
       } else {
         setLoading(false);
         toast.error(`Opps ! ${res?.error}`);
       }
     } else {
-      const res = await editUser(payloadEdit);
+      const res = await editPermission(payloadEdit);
       if (+res?.result?.status === 200) {
         setLoading(false);
         toast.success('Updated Success');
         onReset();
-        onRefresh();
         toggle();
+        onRefresh();
       } else {
         setLoading(false);
         toast.error(`Opps ! ${res?.error}`);
@@ -152,7 +144,18 @@ const AddRoleDrawer = (props) => {
           ...item
         };
       });
+
+      const mappingDataMenu = data.map((item) => {
+        return {
+          menu_id: `${item?.menu_id}`,
+          create: false,
+          read: false,
+          update: false,
+          delete: false
+        };
+      });
       setPermissionList(mappingDataList);
+      setMenuData(mappingDataMenu);
     } else {
       setLoading(false);
       toast.error(`Opps ! ${res?.error} `);
@@ -162,9 +165,109 @@ const AddRoleDrawer = (props) => {
     }
   };
 
+  const togglePermission = (e, value) => {
+    let tempMenuData = [...menuData];
+    const [menuId, action] = e.split('-');
+    const actionValue = action.toLowerCase();
+
+    const crudData = () => {
+      switch (actionValue) {
+        case 'create':
+          return {
+            read: false,
+            update: false,
+            delete: false
+          };
+        case 'read':
+          return {
+            create: false,
+            update: false,
+            delete: false
+          };
+        case 'update':
+          return {
+            create: false,
+            read: false,
+            delete: false
+          };
+        case 'delete':
+          return {
+            create: false,
+            read: false,
+            update: false
+          };
+      }
+    };
+
+    const data = crudData();
+
+    const newMenuData = {
+      menu_id: `${menuId}`,
+      [actionValue]: value,
+      ...data
+    };
+
+    const checkMenuId = menuData.filter((item) => +item?.menu_id === +menuId);
+    if (+checkMenuId?.length > 0) {
+      const updatedData = menuData.map((menu) => {
+        if (+menu.menu_id === +menuId) {
+          switch (actionValue) {
+            case 'create':
+              return {
+                ...menu,
+                create: value
+              };
+            case 'read':
+              return {
+                ...menu,
+                read: value
+              };
+            case 'update':
+              return {
+                ...menu,
+                update: value
+              };
+            case 'delete':
+              return {
+                ...menu,
+                delete: value
+              };
+          }
+        } else {
+          return menu;
+        }
+      });
+      tempMenuData = updatedData;
+    } else {
+      tempMenuData = [...menuData, newMenuData];
+    }
+    setMenuData(tempMenuData);
+  };
+
   useEffect(() => {
     if (dataDetail !== undefined && type === 'Edit') {
       setValue('name', dataDetail?.name ?? '');
+
+      const mappingDataList = dataDetail?.permission.map((item) => {
+        return {
+          id: item?.menu_id,
+          ...item,
+          ...item?.access
+        };
+      });
+      console.log('mappingDataList', mappingDataList);
+
+      const mappingDataMenu = dataDetail?.permission.map((item) => {
+        return {
+          menu_id: `${item?.menu_id}`,
+          create: false,
+          read: false,
+          update: false,
+          delete: false
+        };
+      });
+      setPermissionList(mappingDataList);
+      setMenuData(mappingDataMenu);
     }
   }, [dataDetail, type, setValue]);
 
@@ -242,9 +345,7 @@ const AddRoleDrawer = (props) => {
                           <Checkbox
                             size="small"
                             onChange={handleSelectAllCheckbox}
-
-                            // indeterminate={isIndeterminateCheckbox}
-                            // checked={selectedCheckbox.length === rolesArr.length * 3}
+                            disabled={loading}
                           />
                         }
                       />
@@ -267,13 +368,17 @@ const AddRoleDrawer = (props) => {
                       <TableCell>
                         <FormControlLabel
                           label="Create"
+                          value={true}
                           control={
                             <Checkbox
                               size="small"
+                              disabled={loading}
                               id={`${i?.id}-Create`}
-                              onChange={() => togglePermission(`${i?.id}-Create`)}
-
-                              // checked={selectedCheckbox.includes(`${i?.id}-Create`)}
+                              onChange={(e) =>
+                                togglePermission(`${i?.id}-Create`, e.target.checked)
+                              }
+                              inputProps={{ 'aria-label': 'controlled' }}
+                              defaultChecked={i?.create}
                             />
                           }
                         />
@@ -284,10 +389,13 @@ const AddRoleDrawer = (props) => {
                           control={
                             <Checkbox
                               size="small"
+                              disabled={loading}
                               id={`${i?.id}-Read`}
-                              onChange={() => togglePermission(`${i?.id}-Read`)}
+                              onChange={(e) => togglePermission(`${i?.id}-Read`, e.target.checked)}
+                              checked={i?.read}
+                              inputProps={{ 'aria-label': 'controlled' }}
 
-                              // checked={selectedCheckbox.includes(`${i?.id}-Read`)}
+                              // defaultChecked={i?.read}
                             />
                           }
                         />
@@ -298,10 +406,15 @@ const AddRoleDrawer = (props) => {
                           control={
                             <Checkbox
                               size="small"
+                              disabled={loading}
                               id={`${i?.id}-Update`}
-                              onChange={() => togglePermission(`${i?.id}-Update`)}
+                              onChange={(e) =>
+                                togglePermission(`${i?.id}-Update`, e.target.checked)
+                              }
+                              checked={i?.update}
+                              inputProps={{ 'aria-label': 'controlled' }}
 
-                              // checked={selectedCheckbox.includes(`${i?.id}-Update`)}
+                              // defaultChecked={i?.update}
                             />
                           }
                         />
@@ -312,10 +425,15 @@ const AddRoleDrawer = (props) => {
                           control={
                             <Checkbox
                               size="small"
+                              disabled={loading}
                               id={`${i?.id}-Delete`}
-                              onChange={() => togglePermission(`${i?.id}-Delete`)}
+                              onChange={(e) =>
+                                togglePermission(`${i?.id}-Delete`, e.target.checked)
+                              }
+                              checked={i?.delete}
+                              inputProps={{ 'aria-label': 'controlled' }}
 
-                              // checked={selectedCheckbox.includes(`${i?.id}-Delete`)}
+                              // defaultChecked={i?.delete}
                             />
                           }
                         />
@@ -341,7 +459,6 @@ const AddRoleDrawer = (props) => {
             <Grid item md={3} xs={12}></Grid>
             <Grid item md={3} xs={12}></Grid>
             <Grid item md={3} xs={12}>
-              {' '}
               <Button size="small" type="submit" variant="contained" fullWidth disabled={loading}>
                 {loading ? <CircularProgress size={25} /> : <>{type === 'Add' ? 'Save' : 'Edit'}</>}
               </Button>

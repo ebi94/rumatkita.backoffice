@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Grid from '@mui/material/Grid';
@@ -9,16 +11,15 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Tooltip from '@mui/material/Tooltip';
-
-// import ContentCut from '@mui/icons-material/ContentCut';
-import { listClinic } from 'src/services/global';
+import CustomChip from 'src/@core/components/mui/chip';
+import { listClinic, listNurse } from 'src/services/global';
 import { Typography } from '@mui/material';
 
 const UnitListDialog = (props) => {
-  const { open, toggle } = props;
+  const { bookingData, open, toggle, submitNurse, loading } = props;
 
-  const [loading, setLoading] = useState(false);
   const [unitOptions, setUnitOptions] = useState([]);
+  const [nurseOptions, setNurseOptions] = useState([]);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [selectedNurse, setSelectedNurse] = useState(null);
 
@@ -34,10 +35,25 @@ const UnitListDialog = (props) => {
         };
       });
       setUnitOptions(mappingDataList);
-      setLoading(false);
     } else {
       toast.error(`Status Code : ${res?.result?.status}`);
-      setLoading(false);
+    }
+  };
+
+  const fetchDataNurse = async (id) => {
+    const res = await listNurse(id, bookingData?.order_id);
+    if (+res?.result?.status === 200) {
+      const data = res?.result?.data !== null ? res?.result?.data : [];
+
+      const mappingDataList = data.map((item) => {
+        return {
+          id: item?.clinic_id,
+          ...item
+        };
+      });
+      setNurseOptions(mappingDataList);
+    } else {
+      toast.error(`Status Code : ${res?.result?.status}`);
     }
   };
 
@@ -56,17 +72,23 @@ const UnitListDialog = (props) => {
         <form>
           <Autocomplete
             sx={{ mt: 2, mb: 2, width: '100%' }}
+            disabled={loading}
             id="select-unit"
             fullWidth
             size="small"
             options={unitOptions}
-            onChange={(e, val) => setSelectedUnit(val)}
+            onChange={(e, val) => {
+              setSelectedUnit(val);
+              fetchDataNurse(val?.clinic_id);
+            }}
             autoHighlight
             getOptionLabel={(option) => option.name}
             renderOption={(props, option) => (
               <Grid container component="li" sx={{ mr: 2, flexShrink: 0 }} {...props}>
                 <Grid item md={9}>
-                  <Typography sx={{ fontSize: '12px', fontWeight: 600 }}>{option?.name}</Typography>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600 }}>
+                    {option?.name} ({option?.code})
+                  </Typography>
                   <Typography sx={{ fontSize: '10px', width: '100%' }} noWrap>
                     {option?.complete_address}
                   </Typography>
@@ -85,6 +107,7 @@ const UnitListDialog = (props) => {
                 fullWidth
                 label="Choose an Unit"
                 sx={{ mt: 2, mb: 2, width: '100%' }}
+                disabled={loading}
                 inputProps={{
                   ...params.inputProps
                 }}
@@ -96,21 +119,31 @@ const UnitListDialog = (props) => {
             id="select-unit"
             fullWidth
             size="small"
-            options={unitOptions}
+            options={nurseOptions}
+            onChange={(e, val) => {
+              setSelectedNurse(val);
+            }}
             autoHighlight
             disabled={selectedUnit === null}
+            getOptionDisabled={(option) => !option.available}
             getOptionLabel={(option) => option.name}
             renderOption={(props, option) => (
               <Grid container component="li" sx={{ mr: 2, flexShrink: 0 }} {...props}>
-                <Grid item md={9}>
+                <Grid item md={6}>
                   <Typography sx={{ fontSize: '12px', fontWeight: 600 }}>{option?.name}</Typography>
                   <Typography sx={{ fontSize: '10px', width: '100%' }} noWrap>
                     {option?.complete_address}
                   </Typography>
                 </Grid>
-                <Grid item md={3}>
+                <Grid item md={6}>
                   <Typography variant="body2" sx={{ textAlign: 'end' }}>
-                    {(+option?.distance / 1000).toFixed(2)} Km
+                    <CustomChip
+                      size="small"
+                      skin="dark"
+                      color={!option?.available ? 'error' : 'success'}
+                      label={option?.available ? 'Tersedia' : 'Tidak Tersedia'}
+                      sx={{ '& .MuiChip-label': { textTransform: 'capitalize' } }}
+                    />
                   </Typography>
                 </Grid>
               </Grid>
@@ -122,6 +155,7 @@ const UnitListDialog = (props) => {
                 <TextField
                   {...params}
                   sx={{ mt: 2, mb: 2, width: '100%' }}
+                  disabled={loading}
                   size="small"
                   fullWidth
                   label="Choose a Nurse"
@@ -142,21 +176,22 @@ const UnitListDialog = (props) => {
               fullWidth
               onClick={() => toggle()}
               variant="contained"
-              size="small">
+              size="small"
+              disabled={loading}>
               Cancel
             </Button>
           </Grid>
           <Grid item xs={6} md={3}></Grid>
           <Grid item xs={6} md={3}></Grid>
           <Grid item xs={6} md={3}>
-            {' '}
             <Button
               color="success"
               fullWidth
-              onClick={() => toggle()}
+              onClick={() => submitNurse(selectedUnit, selectedNurse)}
               variant="contained"
-              size="small">
-              Choose
+              size="small"
+              disabled={loading}>
+              {loading ? <CircularProgress size={20} /> : 'Choose'}
             </Button>
           </Grid>
         </Grid>
