@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
 import CustomChip from 'src/@core/components/mui/chip';
+import { selectColor } from 'src/utils/helpers';
 
 const TypographyStyled = styled(Link)(({ theme }) => ({
   textDecoration: 'none',
@@ -18,16 +19,6 @@ const TypographyStyled = styled(Link)(({ theme }) => ({
 
 const CardOrder = (props) => {
   const { dataItem } = props;
-
-  const selectColor = (val) => {
-    if (val === 'Booked') {
-      return 'primary';
-    } else if (val === 'Cancelled') {
-      return 'warning';
-    } else {
-      return 'info';
-    }
-  };
 
   return (
     <Card sx={{ mb: 4 }}>

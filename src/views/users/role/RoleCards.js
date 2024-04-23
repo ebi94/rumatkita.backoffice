@@ -4,17 +4,24 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Icon from 'src/@core/components/icon';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import AddRoleDrawer from './AddRoleDrawer';
 
 const RolesCards = (props) => {
-  const { dataList } = props;
+  const { dataList, onRefresh } = props;
 
   // ** States
   const [typeForm, setTypeForm] = useState('Add');
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [dataDetail, setDataDetail] = useState({});
+  const [dialogDelete, setDialogDelete] = useState(false);
   const [selectedCheckbox, setSelectedCheckbox] = useState([]);
   const [isIndeterminateCheckbox, setIsIndeterminateCheckbox] = useState(false);
 
@@ -75,14 +82,15 @@ const RolesCards = (props) => {
                   color="warning"
                   onClick={(e) => {
                     e.preventDefault();
-                    toggleDrawer();
                     setTypeForm('Edit');
+                    setDataDetail(item);
+                    toggleDrawer();
                   }}>
                   Edit Role
                 </Button>
               </Box>
-              <IconButton sx={{ color: 'text.secondary' }}>
-                {/* <Icon icon="mdi:content-copy" fontSize={20} /> */}
+              <IconButton sx={{ color: 'text.secondary' }} onClick={() => setDialogDelete(true)}>
+                <Icon icon="mdi:delete" fontSize={20} />
               </IconButton>
             </Box>
           </CardContent>
@@ -127,7 +135,34 @@ const RolesCards = (props) => {
         </Card>
       </Grid>
 
-      <AddRoleDrawer open={openDrawer} toggle={toggleDrawer} type={typeForm} />
+      <AddRoleDrawer
+        open={openDrawer}
+        toggle={toggleDrawer}
+        type={typeForm}
+        dataDetail={dataDetail}
+        onRefresh={onRefresh}
+      />
+      <Dialog maxWidth="xs" fullWidth open={dialogDelete} onClose={() => setDialogDelete(false)}>
+        <DialogTitle>Are you sure you want to delete this Roles?</DialogTitle>
+        <DialogActions sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+          <Button
+            color="error"
+            sx={{ width: '100%' }}
+            variant="contained"
+            size="small"
+            onClick={() => setDialogDelete(false)}>
+            No
+          </Button>
+          <Button
+            color="success"
+            sx={{ width: '100%' }}
+            variant="contained"
+            size="small"
+            onClick={() => setDialogDelete(false)}>
+            Yes, Sure
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 };

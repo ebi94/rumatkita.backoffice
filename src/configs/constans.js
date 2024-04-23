@@ -6,9 +6,7 @@ export const statusOrderUnit = [
 ];
 
 export const statusOrderHomecare = [
-  { id: 1, value: 'booked', label: 'Booked' },
   { id: 2, value: 'paid', label: 'Paid' },
-  { id: 3, value: 'assigned', label: 'Assigned' },
   { id: 4, value: 'in-progress', label: 'In Progress' },
   { id: 5, value: 'completed', label: 'Completed' },
   { id: 6, value: 'cancelled', label: 'Cancelled' }

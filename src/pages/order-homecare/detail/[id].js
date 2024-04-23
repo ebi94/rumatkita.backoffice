@@ -5,13 +5,16 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';
 import CardContent from '@mui/material/CardContent';
+import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
 import Select from '@mui/material/Select';
+import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
+import FormHelperText from '@mui/material/FormHelperText';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
@@ -20,8 +23,9 @@ import { styled } from '@mui/material/styles';
 import CustomChip from 'src/@core/components/mui/chip';
 import Icon from 'src/@core/components/icon';
 import PageHeader from 'src/@core/components/page-header';
-import { detailOrderHomecare } from 'src/services/orderHomecare';
+import { detailOrderHomecare, updateStatusOrderHomecare } from 'src/services/orderHomecare';
 import { statusOrderHomecare } from 'src/configs/constans';
+import { selectColor } from 'src/utils/helpers';
 import UnitListDialog from 'src/views/order-homecare/UnitListDialog';
 
 const TypographyStyled = styled(Typography)(({ theme }) => ({
@@ -57,6 +61,9 @@ const OrderHomeCareDetail = () => {
   const [dataDetail, setDataDetail] = useState({});
   const [openChooseUnit, setOpenChooseUnit] = useState(false);
   const [openChangeStatus, setOpenChangeStatus] = useState(false);
+  const [loadingUpdateStatus, setLoadingUpdateStatus] = useState(false);
+  const [statusSelected, setStatusSelected] = useState('');
+  const [reason, setReason] = useState(' ');
 
   const fetchOrderDetail = async () => {
     const res = await detailOrderHomecare(orderId);
@@ -68,19 +75,30 @@ const OrderHomeCareDetail = () => {
     }
   };
 
+  const handleSubmitChangeStatus = async (status, clinicId, nurseId) => {
+    setLoadingUpdateStatus(true);
+    const payload = {
+      status: status,
+      reason,
+      clinic_id: clinicId,
+      nurse_id: nurseId
+    };
+    const res = await updateStatusOrderHomecare(orderId, payload);
+    if (+res?.result?.status === 200) {
+      fetchOrderDetail();
+      setLoadingUpdateStatus(false);
+      setOpenChangeStatus(false);
+      setOpenChooseUnit(false);
+      toast.success(res?.result?.message);
+    } else {
+      setLoadingUpdateStatus(false);
+      toast.error(`Status Code : ${res?.error}`);
+    }
+  };
+
   useEffect(() => {
     if (orderId !== undefined) fetchOrderDetail();
   }, [orderId]);
-
-  const selectColor = (val) => {
-    if (val === 'Booked') {
-      return 'primary';
-    } else if (val === 'Cancelled') {
-      return 'warning';
-    } else {
-      return 'info';
-    }
-  };
 
   return (
     <>
@@ -355,17 +373,40 @@ const OrderHomeCareDetail = () => {
                 label="Status"
                 labelId="demo-dialog-select-label"
                 id="demo-dialog-select"
+                disabled={loadingUpdateStatus}
                 defaultValue="">
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
                 {statusOrderHomecare.map((item) => (
-                  <MenuItem key={item?.id} value={item?.value}>
+                  <MenuItem
+                    key={item?.id}
+                    value={item?.value}
+                    onClick={() => setStatusSelected(item?.label)}>
                     {item?.label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+            {statusSelected === 'Cancelled' ? (
+              <FormControl sx={{ mt: 4, mb: 4, width: '100%' }}>
+                <TextField
+                  required
+                  size="small"
+                  value={reason}
+                  disabled={loadingUpdateStatus}
+                  label="Reason"
+                  onChange={(e) => setReason(e?.target?.value)}
+                  placeholder="Reason"
+                  error={+reason?.length === 0}
+                />
+                {+reason?.length === 0 && (
+                  <FormHelperText sx={{ color: 'error.main' }}>Reason is required</FormHelperText>
+                )}
+              </FormControl>
+            ) : (
+              <></>
+            )}
           </form>
         </DialogContent>
         <DialogActions sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -374,20 +415,32 @@ const OrderHomeCareDetail = () => {
             fullWidth
             onClick={() => setOpenChangeStatus(false)}
             variant="contained"
-            size="small">
+            size="small"
+            disabled={loadingUpdateStatus}>
             Cancel
           </Button>
           <Button
             color="success"
             fullWidth
-            onClick={() => setOpenChangeStatus(false)}
+            onClick={() => handleSubmitChangeStatus(statusSelected, '', '')}
             variant="contained"
-            size="small">
-            Submit Change
+            size="small"
+            disabled={
+              loadingUpdateStatus || (reason?.length === 0 && statusSelected === 'Cancelled')
+            }>
+            {loadingUpdateStatus ? <CircularProgress size={20} /> : 'Submit Change'}
           </Button>
         </DialogActions>
       </Dialog>
-      <UnitListDialog open={openChooseUnit} toggle={() => setOpenChooseUnit(!openChooseUnit)} />
+      <UnitListDialog
+        loading={loadingUpdateStatus}
+        bookingData={dataDetail}
+        submitNurse={(clinic, nurse) => {
+          handleSubmitChangeStatus('Assigned', clinic?.clinic_id, nurse?.nurse_id);
+        }}
+        open={openChooseUnit}
+        toggle={() => setOpenChooseUnit(!openChooseUnit)}
+      />
     </>
   );
 };
